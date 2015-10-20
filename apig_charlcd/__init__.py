@@ -82,6 +82,7 @@ class LcdScreen(object):
         self._d = [d4, d5, d6, d7]
         self._rs = rs
         self._e = e
+        self._lock = asyncio.Lock()
 
         # TODO: manage 2 lines displays
         self._lines = 4
@@ -89,32 +90,33 @@ class LcdScreen(object):
 
     @asyncio.coroutine
     def init(self):
-        # Only use output pins:
-        for pin in (self._d + [self._e, self._rs]):
-            yield from self._pi.set_mode(pin, apig.OUTPUT)
+        with (yield from self._lock):
+            # Only use output pins:
+            for pin in (self._d + [self._e, self._rs]):
+                yield from self._pi.set_mode(pin, apig.OUTPUT)
 
-        # ATM, script is not use for pulsing e, as it seems to be less stable
-        # yield from self._create_pulse_script()
+            # ATM, script is not used for pulsing e, as it seems to be less
+            # stable yield from self._create_pulse_script()
 
-        # Initialise display
-        yield from self._send_byte(0x33, _LCD_CMD)  # 110011 Initialise
-        yield from self._send_byte(0x32, _LCD_CMD)  # 110010 Initialise
+            # Initialise display
+            yield from self._send_byte(0x33, _LCD_CMD)  # 110011 Initialise
+            yield from self._send_byte(0x32, _LCD_CMD)  # 110010 Initialise
 
-        # Cursor move direction
-        yield from self._send_byte(0x06, _LCD_CMD)  # 000110
+            # Cursor move direction
+            yield from self._send_byte(0x06, _LCD_CMD)  # 000110
 
-        # Display control : Display On,Cursor Off, Blink Off
-        display = _CMD_DISPLAY_MASK | _DISPLAY_ON
-        yield from self._send_byte(display, _LCD_CMD)  # 001100
+            # Display control : Display On,Cursor Off, Blink Off
+            display = _CMD_DISPLAY_MASK | _DISPLAY_ON
+            yield from self._send_byte(display, _LCD_CMD)  # 001100
 
-        # 4 bit input, 2 lines and 5x8 dots font : 0b101000
-        # Even though the display has 4 lines, it is set as having 2 lines, it
-        # is probably using two controllers internally and it is somehow setup
-        # to make it work that way.
-        yield from self._send_byte(0b101000, _LCD_CMD)
+            # 4 bit input, 2 lines and 5x8 dots font : 0b101000
+            # Even though the display has 4 lines, it is set as having 2 lines,
+            # it is probably using two controllers internally and it is somehow
+            # setup to make it work that way.
+            yield from self._send_byte(0b101000, _LCD_CMD)
 
-        # Start afresh.
-        yield from self.clear()
+            # Start afresh.
+            yield from self._clear()
 
     def _create_pulse_script(self):
         # create pigpio script for pulse on e
@@ -270,23 +272,29 @@ class LcdScreen(object):
                 l = int(len(pad)/2)
                 data = pad[:l] + message + pad[:l+1]
 
-        yield from self.move_to(0, line)
+        with (yield from self._lock):
+            yield from self._move_to(0, line)
 
-        for i in range(self._rows):
-            yield from self._send_byte(data[i], _LCD_CHR)
+            for i in range(self._rows):
+                yield from self._send_byte(data[i], _LCD_CHR)
 
     @asyncio.coroutine
     def clear(self):
         """
         Clear the screen
         """
+        with (yield from self._lock):
+            yield from self._clear()
+
+    def _clear(self):
         yield from self._send_byte(_CMD_CLEAR, _LCD_CMD)
         yield from asyncio.sleep(0.003)
 
     @asyncio.coroutine
     def home(self):
-        yield from self._send_byte(_CMD_HOME, _LCD_CMD)
-        yield from asyncio.sleep(0.003)
+        with (yield from self._lock):
+            yield from self._send_byte(_CMD_HOME, _LCD_CMD)
+            yield from asyncio.sleep(0.003)
 
     @asyncio.coroutine
     def move_to(self, col, row):
@@ -296,6 +304,11 @@ class LcdScreen(object):
         :param row:
         :return:
         """
+        with (yield from self._lock):
+            yield from self._move_to( col, row)
+
+    @asyncio.coroutine
+    def _move_to(self, col, row):
         if row > (self._lines-1):
             row = self._lines - 2
         # Set location.
@@ -310,7 +323,8 @@ class LcdScreen(object):
         :param char: a character code as given by ord(c)
         :return:
         """
-        yield from self._send_byte(char, _LCD_CHR)
+        with (yield from self._lock):
+            yield from self._send_byte(char, _LCD_CHR)
 
     @asyncio.coroutine
     def write_at(self, col, row, text):
@@ -328,8 +342,10 @@ class LcdScreen(object):
             data = text
 
         m = min(self._rows, len(data))
-        for i in range(m):
-            yield from self._send_byte(data[i], _LCD_CHR)
+        with (yield from self._lock):
+            yield from self._move_to(col, row)
+            for i in range(m):
+                yield from self._send_byte(data[i], _LCD_CHR)
 
     @asyncio.coroutine
     def enable(self, enabled):
@@ -338,7 +354,9 @@ class LcdScreen(object):
             display = _CMD_DISPLAY_MASK | _DISPLAY_ON
         else:
             display = _CMD_DISPLAY_MASK
-        yield from self._send_byte(display, _LCD_CMD)
+
+        with (yield from self._lock):
+            yield from self._send_byte(display, _LCD_CMD)
 
     @asyncio.coroutine
     def create_char(self, location, pattern):
@@ -354,6 +372,7 @@ class LcdScreen(object):
         """
         # only position 0..7 are allowed
         location &= 0x7
-        yield from self._send_byte(_CMD_CGRAM_MASK | (location << 3), _LCD_CMD)
-        for i in range(8):
-            yield from self._send_byte(pattern[i], _LCD_CHR)
+        with (yield from self._lock):
+            yield from self._send_byte(_CMD_CGRAM_MASK | (location << 3), _LCD_CMD)
+            for i in range(8):
+                yield from self._send_byte(pattern[i], _LCD_CHR)
