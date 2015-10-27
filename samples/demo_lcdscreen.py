@@ -1,5 +1,5 @@
 import asyncio
-from apig_charlcd import LcdScreen
+import apig_charlcd
 import apigpio as apig
 
 # Define GPIO to LCD mapping
@@ -56,9 +56,12 @@ def simulate_list_scroll(lcd_screen):
 
     # simulate list scrolling
     for i in range(80):
-        yield from lcd_screen.write_line(items[i % m], 1, 1)
-        yield from lcd_screen.write_line(items[(i+1) % m], 2, 1)
-        yield from lcd_screen.write_line(items[(i+2) % m], 3, 1)
+        yield from lcd_screen.write_line(items[i % m], 1,
+                                         apig_charlcd.STYLE_LEFT)
+        yield from lcd_screen.write_line(items[(i+1) % m], 2,
+                                         apig_charlcd.STYLE_LEFT)
+        yield from lcd_screen.write_line(items[(i+2) % m], 3,
+                                         apig_charlcd.STYLE_LEFT)
         yield from asyncio.sleep(0.5)
 
 
@@ -66,26 +69,35 @@ def simulate_list_scroll(lcd_screen):
 def demo(pi, address):
 
     yield from pi.connect(address)
-    lcd_screen = LcdScreen(pi, LCD_E, LCD_RS, LCD_D4, LCD_D5, LCD_D6, LCD_D7)
+    lcd_screen = apig_charlcd.LcdScreen(pi, LCD_E, LCD_RS, LCD_D4, LCD_D5,
+                                        LCD_D6, LCD_D7)
     yield from lcd_screen.init()
 
     while True:
 
-        yield from fill_screen(lcd_screen)
+        #yield from fill_screen(lcd_screen)
 
-        yield from simulate_list_scroll(lcd_screen)
+        #yield from simulate_list_scroll(lcd_screen)
 
-        yield from lcd_screen.write_line("--------------------", 0, 2)
-        yield from lcd_screen.write_line("Rasbperry Pi", 1, 2)
-        yield from lcd_screen.write_line("Model B", 2, 2)
-        yield from lcd_screen.write_line("--------------------", 3, 2)
+        yield from lcd_screen.write_line("<------------------>", 0,
+                                         apig_charlcd.STYLE_CENTERED)
+        yield from lcd_screen.write_line("Rasbperry Pi", 1,
+                                         apig_charlcd.STYLE_CENTERED)
+        yield from lcd_screen.write_line(" (tested with v2)", 2,
+                                         apig_charlcd.STYLE_CENTERED)
+        yield from lcd_screen.write_line("<------------------>", 3,
+                                         apig_charlcd.STYLE_CENTERED)
 
         yield from asyncio.sleep(3)
 
-        yield from lcd_screen.write_line("Raspberrypi-spy", 0, 3)
-        yield from lcd_screen.write_line(".co.uk", 1, 3)
-        yield from lcd_screen.write_line("", 2, 2)
-        yield from lcd_screen.write_line("20x4 LCD Module Test", 3, 2)
+        yield from lcd_screen.write_line("LDC Screen ", 0,
+                                         apig_charlcd.STYLE_RIGHT)
+        yield from lcd_screen.write_line("with asyncio", 1,
+                                         apig_charlcd.STYLE_RIGHT)
+        yield from lcd_screen.write_line("and pigpio", 2,
+                                         apig_charlcd.STYLE_RIGHT)
+        yield from lcd_screen.write_line("20x4 LCD screen", 3,
+                                         apig_charlcd.STYLE_RIGHT)
 
         yield from asyncio.sleep(3)
 
