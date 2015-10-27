@@ -86,7 +86,15 @@ class LcdScreen(object):
 
         # TODO: manage 2 lines displays
         self._lines = 4
-        self._rows = 20
+        self._cols = 20
+
+    @property
+    def lines(self):
+        return self._lines
+
+    @property
+    def cols(self):
+        return self._cols
 
     @asyncio.coroutine
     def init(self):
@@ -256,14 +264,14 @@ class LcdScreen(object):
         data = []
         if isinstance(message, str):
             if style == STYLE_LEFT:
-                message = message.ljust(self._rows, ' ')
+                message = message.ljust(self._cols, ' ')
             elif style == STYLE_CENTERED:
-                message = message.center(self._rows, ' ')
+                message = message.center(self._cols, ' ')
             elif style == STYLE_RIGHT:
-                message = message.rjust(self._rows, ' ')
+                message = message.rjust(self._cols, ' ')
             data = [ord(c) for c in message]
         else:
-            pad = [ord(' ')] * (self._rows-len(message))
+            pad = [ord(' ')] * (self._cols-len(message))
             if style == STYLE_LEFT:
                 data = message + pad
             elif style == STYLE_RIGHT:
@@ -275,7 +283,7 @@ class LcdScreen(object):
         with (yield from self._lock):
             yield from self._move_to(0, line)
 
-            for i in range(self._rows):
+            for i in range(self._cols):
                 yield from self._send_byte(data[i], _LCD_CHR)
 
     @asyncio.coroutine
@@ -341,7 +349,7 @@ class LcdScreen(object):
         else:
             data = text
 
-        m = min(self._rows, len(data))
+        m = min(self._cols, len(data))
         with (yield from self._lock):
             yield from self._move_to(col, row)
             for i in range(m):
