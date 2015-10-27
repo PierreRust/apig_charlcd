@@ -84,12 +84,14 @@ def demo(pi, address):
 
 if __name__ == '__main__':
 
+    p = None
+    loop = asyncio.get_event_loop()
     try:
-        loop = asyncio.get_event_loop()
         p = apig.Pi(loop)
-        a = ('192.168.1.3', 8888)
+        a = ('192.168.1.12', 8888)
         loop.run_until_complete(demo(p, a))
     except KeyboardInterrupt:
         pass
     finally:
-        pass
+        if p is not None:
+            loop.run_until_complete(p.stop())
